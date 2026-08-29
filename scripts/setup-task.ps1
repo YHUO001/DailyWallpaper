@@ -27,3 +27,4 @@ Register-ScheduledTask -TaskName "$TaskPrefix - Hourly" -Action $taskAction -Tri
 Write-Host "Installed scheduled tasks: '$TaskPrefix - Login' and '$TaskPrefix - Hourly'"
 Write-Host "Project: $projectRoot"
 Write-Host 'The tasks run in the current user context and do not start a background daemon.'
+
