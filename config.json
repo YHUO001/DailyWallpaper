@@ -1,0 +1,207 @@
+{
+  "location": {
+    "latitude": 31.2304,
+    "longitude": 121.4737,
+    "timezone": "auto"
+  },
+  "wallpaperEngine": {
+    "executable": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe",
+    "monitor": 0
+  },
+  "image": {
+    "minimumWidth": 3840,
+    "minimumHeight": 2160,
+    "aspectRatio": "16x9",
+    "categories": "100",
+    "purity": "100",
+    "minimumFileSizeKB": 100,
+    "aspectTolerancePercent": 2
+  },
+  "pool": {
+    "size": 8,
+    "candidateTarget": 72,
+    "highQualityCandidateCount": 24,
+    "maxSearchPages": 5
+  },
+  "history": {
+    "retentionDays": 60
+  },
+  "schedule": {
+    "minimumAutomaticChangeHours": 3,
+    "weatherConfirmationChecks": 2,
+    "requestTimeoutSeconds": 30
+  },
+  "topics": {
+    "mode": "MIXED",
+    "weights": {
+      "NATURE": 40,
+      "CITY": 30,
+      "ARCHITECTURE": 20,
+      "SPACE": 10
+    }
+  },
+  "wallhaven": {
+    "baseUrl": "https://wallhaven.cc/api/v1",
+    "sorting": "random",
+    "apiKey": ""
+  },
+  "logging": {
+    "enabled": true,
+    "maxLogSizeMB": 5
+  },
+  "keywords": {
+    "CLEAR": {
+      "NATURE": [
+        "blue sky landscape",
+        "sunny mountain",
+        "ocean sunlight",
+        "green valley",
+        "summer landscape",
+        "alpine landscape",
+        "clear lake"
+      ],
+      "CITY": [
+        "bright city",
+        "city skyline",
+        "modern city sunlight",
+        "coastal city",
+        "urban skyline daylight"
+      ],
+      "ARCHITECTURE": [
+        "minimal architecture",
+        "modern architecture sunlight",
+        "contemporary architecture",
+        "glass architecture"
+      ],
+      "SPACE": [
+        "earth from space",
+        "blue planet",
+        "nebula",
+        "milky way"
+      ]
+    },
+    "CLOUDY": {
+      "NATURE": [
+        "cloudy mountain",
+        "dramatic clouds",
+        "moody landscape",
+        "overcast landscape",
+        "mountain clouds"
+      ],
+      "CITY": [
+        "cloudy city",
+        "moody city",
+        "grey city",
+        "overcast skyline"
+      ],
+      "ARCHITECTURE": [
+        "brutalist architecture",
+        "concrete architecture",
+        "minimal architecture cloudy"
+      ],
+      "SPACE": [
+        "dark nebula",
+        "space clouds",
+        "deep space"
+      ]
+    },
+    "RAIN": {
+      "NATURE": [
+        "rain forest",
+        "rainy mountain",
+        "storm landscape",
+        "rain landscape",
+        "wet forest"
+      ],
+      "CITY": [
+        "rainy city",
+        "rain street",
+        "city rain",
+        "neon rain",
+        "wet city street",
+        "rainy skyline"
+      ],
+      "ARCHITECTURE": [
+        "rain window",
+        "dark architecture",
+        "wet architecture"
+      ],
+      "SPACE": [
+        "dark space",
+        "storm nebula"
+      ]
+    },
+    "FOG": {
+      "NATURE": [
+        "fog forest",
+        "misty mountain",
+        "fog landscape",
+        "mist forest",
+        "foggy valley"
+      ],
+      "CITY": [
+        "foggy city",
+        "fog skyline",
+        "mist city"
+      ],
+      "ARCHITECTURE": [
+        "fog architecture",
+        "minimal architecture fog",
+        "brutalist fog"
+      ],
+      "SPACE": [
+        "mist nebula",
+        "deep space nebula"
+      ]
+    },
+    "SNOW": {
+      "NATURE": [
+        "snow mountain",
+        "winter forest",
+        "snow landscape",
+        "snow lake",
+        "winter valley"
+      ],
+      "CITY": [
+        "snow city",
+        "winter city",
+        "snow street",
+        "winter skyline"
+      ],
+      "ARCHITECTURE": [
+        "snow architecture",
+        "winter cabin",
+        "modern cabin snow"
+      ],
+      "SPACE": [
+        "ice planet",
+        "blue space",
+        "winter nebula"
+      ]
+    },
+    "STORM": {
+      "NATURE": [
+        "storm clouds",
+        "lightning landscape",
+        "thunderstorm",
+        "dark storm",
+        "dramatic sky"
+      ],
+      "CITY": [
+        "storm city",
+        "lightning city",
+        "dark city storm",
+        "storm skyline"
+      ],
+      "ARCHITECTURE": [
+        "dark architecture storm",
+        "dramatic architecture"
+      ],
+      "SPACE": [
+        "storm nebula",
+        "dark nebula",
+        "space lightning"
+      ]
+    }
+  }
+}
