@@ -1,0 +1,21 @@
+# DailyWallpaper runtime data
+state/*.json
+!state/.gitkeep
+cache/*
+!cache/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Temporary files created by atomic state writes/downloads
+*.tmp
+*.tmp.*
+
+# Existing local tooling artifacts; they are not part of DailyWallpaper.
+.research-inbox-oauth-logs/
+.research-inbox-oauth-venv/
+
+# Windows and editor noise
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
