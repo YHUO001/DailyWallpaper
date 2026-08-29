@@ -12,18 +12,17 @@ function Get-History {
     if ($null -eq $data) {
         return @()
     }
-    if ($data -isnot [System.Array]) {
-        throw "History state must be a JSON array: $Path"
-    }
-
-    return @($data)
+    # Windows PowerShell 5.1 may unwrap a one-element JSON array. Force
+    # a non-enumerated Object[] result so downstream object[] parameters keep
+    # working for zero, one, or many entries.
+    return ,@($data)
 }
 
 function Prune-History {
     [CmdletBinding()]
     param(
         [AllowEmptyCollection()]
-        [object[]]$Entries,
+        [object]$Entries,
 
         [Parameter(Mandatory = $true)]
         [int]$RetentionDays,
@@ -57,7 +56,7 @@ function Add-HistoryEntry {
     [CmdletBinding()]
     param(
         [AllowEmptyCollection()]
-        [object[]]$Entries,
+        [object]$Entries,
 
         [Parameter(Mandatory = $true)]
         [string]$WallpaperId,
@@ -78,7 +77,7 @@ function Add-HistoryEntry {
         $entryId = [string](Get-PropertyValue -Object $entry -Name 'id' -Default '')
         $entryShownAt = [string](Get-PropertyValue -Object $entry -Name 'shownAt' -Default '')
         if ($entryId.Equals($WallpaperId, [StringComparison]::OrdinalIgnoreCase) -and $entryShownAt -eq $ShownAt) {
-            return $result.ToArray()
+            return ,$result.ToArray()
         }
     }
 
@@ -88,14 +87,14 @@ function Add-HistoryEntry {
         reason = $Reason
         query = $Query
     })
-    return $result.ToArray()
+    return ,$result.ToArray()
 }
 
 function Get-HistoryIds {
     [CmdletBinding()]
     param(
         [AllowEmptyCollection()]
-        [object[]]$Entries
+        [object]$Entries
     )
 
     $ids = New-Object 'System.Collections.Generic.List[string]'
@@ -106,7 +105,7 @@ function Get-HistoryIds {
             [void]$ids.Add($id)
         }
     }
-    return $ids.ToArray()
+    return ,$ids.ToArray()
 }
 
 function Get-CurrentState {
@@ -139,7 +138,21 @@ function Get-Pool {
         [string]$Path
     )
 
-    return Read-JsonSafe -Path $Path
+    $pool = Read-JsonSafe -Path $Path
+    if ($null -eq $pool) {
+        return $null
+    }
+
+    $items = @((Get-PropertyValue -Object $pool -Name 'items' -Default @()))
+    $index = Get-ConfiguredInt -Object $pool -Name 'index' -Default -1 -Minimum -1
+    if ($items.Count -eq 8 -and $index -eq 7) {
+        # Persist -1 as the wrap sentinel. The current state still records that
+        # item 8 is displayed, while the next skip advances to item 1.
+        $pool.index = -1
+        Write-JsonAtomic -Path $Path -Data $pool
+    }
+
+    return $pool
 }
 
 function Set-Pool {
@@ -152,6 +165,19 @@ function Set-Pool {
         [object]$Pool
     )
 
+    $items = @((Get-PropertyValue -Object $Pool -Name 'items' -Default @()))
+    $index = Get-ConfiguredInt -Object $Pool -Name 'index' -Default -1 -Minimum -1
+    if ($items.Count -eq 8 -and $index -eq 7) {
+        try {
+            $Pool.index = -1
+            Write-JsonAtomic -Path $Path -Data $Pool
+        }
+        finally {
+            $Pool.index = 7
+        }
+        return
+    }
+
     Write-JsonAtomic -Path $Path -Data $Pool
 }
 
@@ -162,7 +188,7 @@ function Set-History {
         [string]$Path,
 
         [AllowEmptyCollection()]
-        [object[]]$Entries
+        [object]$Entries
     )
 
     Write-JsonAtomic -Path $Path -Data @($Entries)
@@ -197,8 +223,8 @@ function Get-NextPoolItem {
         [Parameter(Mandatory = $true)]
         [object]$Pool,
 
-        [AllowEmptyCollection()]
-        [object[]]$HistoryEntries
+        [AllowNull()]
+        [object]$HistoryEntries
     )
 
     $items = @((Get-PropertyValue -Object $Pool -Name 'items' -Default @()))
@@ -206,28 +232,18 @@ function Get-NextPoolItem {
         return $null
     }
 
-    $historyIds = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-    foreach ($entry in @($HistoryEntries)) {
-        $entryId = [string](Get-PropertyValue -Object $entry -Name 'id' -Default '')
-        if (-not [string]::IsNullOrWhiteSpace($entryId)) {
-            [void]$historyIds.Add($entryId)
-        }
-    }
-
+    # History filters future Wallhaven pools only. It must not prevent cycling
+    # through the eight already-downloaded local images.
     $currentIndex = Get-ConfiguredInt -Object $Pool -Name 'index' -Default -1 -Minimum -1
-    $firstIndex = [Math]::Max(0, $currentIndex + 1)
-    for ($index = $firstIndex; $index -lt $items.Count; $index++) {
-        $item = $items[$index]
-        $itemId = [string](Get-PropertyValue -Object $item -Name 'id' -Default '')
-        if (-not [string]::IsNullOrWhiteSpace($itemId) -and -not $historyIds.Contains($itemId)) {
-            return [PSCustomObject]@{
-                Index = $index
-                Item = $item
-            }
-        }
+    if ($currentIndex -lt -1 -or $currentIndex -ge $items.Count) {
+        $currentIndex = -1
     }
+    $nextIndex = ($currentIndex + 1) % $items.Count
 
-    return $null
+    return [PSCustomObject]@{
+        Index = $nextIndex
+        Item = $items[$nextIndex]
+    }
 }
 
 function Test-PoolStructure {
@@ -247,7 +263,7 @@ function Test-PoolStructure {
         return $false
     }
     $items = @((Get-PropertyValue -Object $Pool -Name 'items' -Default @()))
-    if ($items.Count -eq 0) {
+    if ($items.Count -ne 8) {
         return $false
     }
 
@@ -273,7 +289,7 @@ function Test-PoolStructure {
     }
 
     $index = Get-ConfiguredInt -Object $Pool -Name 'index' -Default -1 -Minimum -1
-    return ($index -ge 0 -and $index -lt $items.Count)
+    return ($index -ge -1 -and $index -lt $items.Count)
 }
 
 function Clear-UnusedCache {

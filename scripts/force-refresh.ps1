@@ -10,6 +10,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib\Wallhaven.ps1')
 . (Join-Path $PSScriptRoot 'lib\WallpaperEngine.ps1')
 . (Join-Path $PSScriptRoot 'lib\Workflow.ps1')
+. (Join-Path $PSScriptRoot 'lib\RuntimePolicy.ps1')
 
 $paths = $null
 $config = $null

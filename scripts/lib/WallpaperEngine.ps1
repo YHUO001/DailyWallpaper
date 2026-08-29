@@ -45,6 +45,44 @@ function ConvertTo-ProcessArgument {
     return '"' + $Value + '"'
 }
 
+function Copy-WallpaperEngineImageToStaging {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath
+    )
+
+    if (-not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
+        throw "Wallpaper image does not exist: $ImagePath"
+    }
+
+    $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+    if ([string]::IsNullOrWhiteSpace($localAppData)) {
+        $localAppData = [string]$env:LOCALAPPDATA
+    }
+    if ([string]::IsNullOrWhiteSpace($localAppData)) {
+        throw 'LOCALAPPDATA is unavailable; cannot create Wallpaper Engine staging cache.'
+    }
+
+    $stagingDirectory = Join-Path $localAppData 'DailyWallpaper\cache'
+    [void](New-Item -ItemType Directory -Force -Path $stagingDirectory)
+
+    $extension = [IO.Path]::GetExtension($ImagePath).ToLowerInvariant()
+    if ($extension -notin @('.jpg', '.jpeg', '.png')) {
+        throw "Unsupported wallpaper extension for staging: $extension"
+    }
+
+    $baseName = [IO.Path]::GetFileNameWithoutExtension($ImagePath)
+    $safeBaseName = [Regex]::Replace($baseName, '[^A-Za-z0-9._-]', '_')
+    if ([string]::IsNullOrWhiteSpace($safeBaseName)) {
+        $safeBaseName = 'wallpaper'
+    }
+
+    $stagedPath = Join-Path $stagingDirectory ($safeBaseName + $extension)
+    Copy-Item -LiteralPath $ImagePath -Destination $stagedPath -Force
+    return (Resolve-Path -LiteralPath $stagedPath).ProviderPath
+}
+
 function Set-WallpaperEngineImage {
     [CmdletBinding()]
     param(
@@ -69,7 +107,8 @@ function Set-WallpaperEngineImage {
     }
 
     $executable = Get-WallpaperEngineExecutable -Config $Config
-    $arguments = '-control openWallpaper -file ' + (ConvertTo-ProcessArgument -Value $ImagePath) + ' -monitor ' + [string]$Monitor
+    $stagedImagePath = Copy-WallpaperEngineImageToStaging -ImagePath $ImagePath
+    $arguments = '-control openWallpaper -file ' + (ConvertTo-ProcessArgument -Value $stagedImagePath) + ' -monitor ' + [string]$Monitor
     $displayCommand = (ConvertTo-ProcessArgument -Value $executable) + ' ' + $arguments
     $process = $null
 
@@ -109,6 +148,8 @@ function Set-WallpaperEngineImage {
             StandardOutput = $standardOutput
             StandardError = $standardError
             Command = $displayCommand
+            SourceImagePath = $ImagePath
+            StagedImagePath = $stagedImagePath
         }
     }
     finally {

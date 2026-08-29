@@ -2,7 +2,7 @@
   "location": {
     "latitude": 31.2304,
     "longitude": 121.4737,
-    "timezone": "auto"
+    "timezone": "Asia/Shanghai"
   },
   "wallpaperEngine": {
     "executable": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe",

@@ -1,3 +1,6 @@
+# Local machine configuration
+config.json
+
 # DailyWallpaper runtime data
 state/*.json
 !state/.gitkeep
@@ -19,3 +22,7 @@ Thumbs.db
 Desktop.ini
 .vscode/
 .idea/
+
+
+# Local handoff archive
+DailyWallpaper-v1-handoff.zip

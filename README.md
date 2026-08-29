@@ -1,193 +1,175 @@
 # DailyWallpaper v1
 
-一个只依赖 Windows PowerShell、Wallpaper Engine、Windows Task Scheduler、Wallhaven 和 Open-Meteo 的静态壁纸自动化工具。
+DailyWallpaper 是一个面向 Windows 的静态 4K 壁纸自动化项目。它根据天气、昼夜和主题从 Wallhaven 选择壁纸，通过 Wallpaper Engine CLI 只更新指定显示器；不使用 Web Wallpaper、动画或常驻服务。
 
-它会根据日期、天气、昼夜和可配置的视觉主题，从 Wallhaven 选择并下载 4K 以上的 16:9 SFW General 壁纸。它只调用 Wallpaper Engine 的命令行接口，不创建 Web Wallpaper、动画、叠加层或常驻后台进程。
+## 当前行为
 
-## 特性
+- 固定维护 **8 张**本地候选壁纸。
+- `skip.ps1` 只在这 8 张之间循环：`1 → 2 → … → 8 → 1`，不会因为走到第 8 张而重新下载候选池。
+- 想主动下载一组新的 8 张图片时，运行 `force-refresh.ps1`。
+- 只接受至少 `3840x2160`、近似 `16:9`、SFW、General 的 JPG/PNG。
+- Wallhaven 候选按收藏数和浏览量做质量偏置随机，不固定选择单个最高分结果。
+- 最近 60 天实际显示过的图片会进入历史，用于过滤**未来新建的候选池**；历史不会阻止当前 8 张本地池循环。
+- 天气变化需要连续两次检查确认，自动天气切换默认至少间隔 3 小时。
+- 支持 Windows PowerShell 5.1 与 PowerShell 7。
+- 目标显示器由 `wallpaperEngine.monitor` 指定；示例为 `0`。
+- 推荐跳过快捷键：`Ctrl + Alt + M`。
 
-- 仅更新 `config.json` 指定的 Wallpaper Engine 显示器索引；不会默认假设 `monitor 0` 就是 Windows 主显示器。
-- 只接受至少 `3840x2160`、近似 `16:9`、SFW、General 类别的 JPG/PNG。
-- 天气分类：`CLEAR`、`CLOUDY`、`RAIN`、`FOG`、`SNOW`、`STORM`。
-- 天气变化必须连续两次检查确认，自动天气切换默认至少间隔 3 小时。
-- 每次创建 8 张本地候选池，手动跳过已有缓存项时不需要等待网络请求。
-- `state/history.json` 保留最近 60 天实际显示过的壁纸 ID，手动跳过也会计入历史。
-- API 或 Wallpaper Engine 失败时保留当前工作壁纸和旧状态，不用空池覆盖旧池。
-- 状态 JSON 使用同目录临时文件和原子替换写入。
+## Unicode 路径兼容
+
+项目本身可以放在含中文或其他 Unicode 字符的目录中。为了避免部分 Wallpaper Engine/Windows 组合无法读取非 ASCII 图片路径，脚本在调用 Wallpaper Engine 前会把当前图片复制到：
+
+```text
+%LOCALAPPDATA%\DailyWallpaper\cache
+```
+
+Wallpaper Engine 实际读取的是这里的 ASCII 安全文件名；项目目录中的 `cache/` 仍然用于候选池下载与状态管理。
 
 ## Requirements
 
 - Windows 10/11
-- Wallpaper Engine 已安装并正在运行
-- PowerShell 7（推荐）或 Windows PowerShell 5.1
-- 可访问 Wallhaven 和 Open-Meteo 的网络
-- 运行脚本的账户对本项目目录具有读写权限
-
-Wallhaven 的搜索 API 和 Wallpaper Engine 的命令行参数分别见官方文档：[Wallhaven API v1](https://wallhaven.cc/help/api) 和 [Wallpaper Engine Command Line Controls](https://help.wallpaperengine.io/en/functionality/cli.html)。v1 使用 SFW 搜索，不需要 Wallhaven API key。
+- Wallpaper Engine 已安装并运行
+- Windows PowerShell 5.1 或 PowerShell 7
+- 可访问 Wallhaven 与 Open-Meteo
 
 ## Installation
 
-1. 将整个项目目录放在一个稳定路径，例如 `C:\Tools\DailyWallpaper`。
-2. 编辑 [config.json](config.json)，至少修改：
+1. 克隆或下载仓库。
+2. 从示例配置创建本机配置：
+
+   ```powershell
+   Copy-Item .\config.example.json .\config.json
+   ```
+
+3. 编辑本机 `config.json`：
    - `location.latitude` / `location.longitude`
+   - `location.timezone`
    - `wallpaperEngine.executable`
    - `wallpaperEngine.monitor`
-3. 确认 Wallpaper Engine 已启动，并且当前用户允许它接受命令行控制。
-4. 在项目根目录打开 PowerShell，手动执行一次：
+4. 手动运行一次：
 
    ```powershell
    .\scripts\update.ps1
    ```
 
-首次成功运行会创建 `state/`、`cache/` 和 `logs/` 中的运行时文件。运行时数据已加入 `.gitignore`，不会被提交到 Git。
+`config.json` 是本机配置，已被 `.gitignore` 忽略；仓库只维护 `config.example.json`。
 
-### 如果 config.json 不存在
+## 示例配置
 
-脚本会生成一个带默认值的示例配置并退出。编辑它后再次运行即可。仓库内提供的配置使用上海坐标作为示例，必须按实际地点修改。
-
-## 配置 Wallpaper Engine
-
-### 找到可执行文件
-
-常见位置是：
-
-```text
-C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\wallpaper64.exe
-```
-
-也可以在 Steam 的 Wallpaper Engine 属性中打开“浏览本地文件”，找到 `wallpaper64.exe` 或 `wallpaper32.exe`，然后写入 `wallpaperEngine.executable`。路径含空格时不需要在 JSON 值中额外加引号；示例配置已经展示了正确形式。
-
-### 确定主显示器索引
-
-`wallpaperEngine.monitor` 是 Wallpaper Engine CLI 的数字索引，不能仅凭 Windows 显示设置中的“主显示器”编号推断。建议：
-
-1. 确认 Wallpaper Engine 正在运行。
-2. 将 `monitor` 设置为一个候选值，从 `0` 开始。
-3. 运行 `force-refresh.ps1`，确认只有目标主显示器被更新。
-4. 若目标错误，改用下一个索引重复测试。
-
-Wallpaper Engine 官方 CLI 也支持 `getWallpaper -monitor <number>`，可用于逐个索引检查当前壁纸路径。确定后，把索引固定写入 `config.json`；不要在脚本中自动猜测主显示器。
-
-## Manual commands
-
-在项目根目录执行：
-
-```powershell
-# 普通更新：检查日期、天气防抖和当前候选池
-.\scripts\update.ps1
-
-# 跳过当前壁纸：优先从本地候选池即时切换
-.\scripts\skip.ps1
-
-# 忽略当前候选池，按当前天气/昼夜重新下载候选池
-.\scripts\force-refresh.ps1
-
-# 安装“登录时”和“每小时”两个任务
-.\scripts\setup-task.ps1
-```
-
-脚本手动运行时会输出当前天气、昼夜、主题、查询字符串、当前壁纸和候选池位置。实际失败会返回非零退出码。
-
-## Skip shortcut / hotkey
-
-可以创建一个指向以下命令的 Windows 快捷方式：
-
-```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Tools\DailyWallpaper\scripts\skip.ps1"
-```
-
-在快捷方式属性中将“起始位置”设为项目根目录，并在“快捷键”字段设置 `Ctrl + Alt + N`。Windows 对带方向键的快捷键支持不一致，因此 v1 文档推荐字母 `N`；也可以按个人习惯使用其他组合。v1 不依赖 AutoHotkey。
-
-## Task Scheduler
-
-执行：
-
-```powershell
-.\scripts\setup-task.ps1
-```
-
-它会创建：
-
-- `DailyWallpaper - Login`：当前用户登录时执行 `update.ps1`
-- `DailyWallpaper - Hourly`：首次在约一分钟后执行，之后每小时检查一次
-
-脚本不会创建持续运行的服务或后台守护进程。若系统策略要求管理员权限，请用当前用户确认后的 PowerShell 窗口执行任务安装；任务本身仍以当前用户上下文运行。
-
-## Topic weights
-
-默认 `MIXED` 权重为：
+仓库中的 `config.example.json` 使用上海作为天气位置示例：
 
 ```json
-"weights": {
-  "NATURE": 40,
-  "CITY": 30,
-  "ARCHITECTURE": 20,
-  "SPACE": 10
+{
+  "location": {
+    "latitude": 31.2304,
+    "longitude": 121.4737,
+    "timezone": "Asia/Shanghai"
+  },
+  "wallpaperEngine": {
+    "executable": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe",
+    "monitor": 0
+  }
 }
 ```
 
-权重不要求总和必须为 100。也可以把 `topics.mode` 改为 `NATURE`、`CITY`、`ARCHITECTURE` 或 `SPACE`，固定使用一个主题。天气和主题的关键词池位于 `keywords` 配置节中，可直接编辑。
+Wallpaper Engine 安装位置因机器而异。请在你自己的 `config.json` 中填写真实路径，不要把本机路径或 API key 提交到仓库。
 
-## Pool and history behavior
-
-- `pool.size` 默认是 8；`candidateTarget` 默认请求约 72 个候选；`highQualityCandidateCount` 默认从质量最高的约 24 个候选中做质量偏置随机抽样。
-- 质量分使用 `3 * log(favorites + 1) + log(views + 1)`，不会每次都选择单个收藏数最高的结果。
-- 只有真正显示过的壁纸才写入历史；等待中的候选不会被提前标记为已看。
-- 手动跳过的当前壁纸会写入历史，因此未来 60 天不会重新进入候选池。
-- 候选池耗尽后，`skip.ps1` 才会联网构建新池；有可用缓存项时跳过路径不请求 Wallhaven。
-
-运行时目录：
-
-```text
-state/current.json   当前实际显示的壁纸和场景
-state/pool.json      当前已下载的候选池和索引
-state/history.json   最近 60 天显示事件
-state/weather.json   天气分类确认、防抖和自动切换时间
-cache/               已下载的 JPG/PNG
-logs/                dailywallpaper.log 和轮转日志
-```
-
-## Failure behavior and troubleshooting
-
-### 桌面没有变化
-
-1. 确认 Wallpaper Engine 正在运行。
-2. 检查 `wallpaperEngine.executable` 是否指向真实文件。
-3. 检查 `wallpaperEngine.monitor` 是否是已验证的 Wallpaper Engine 索引。
-4. 查看 `logs/dailywallpaper.log` 中的 CLI 退出码和错误输出。
-
-### 没有下载到图片
-
-Wallhaven 可能暂时限流、搜索结果不足或网络不可用。脚本会依次尝试更宽的查询，但始终保留 4K、16:9、SFW、General 和 60 天排除条件。构建失败时旧候选池和当前壁纸不会被空池替换。
-
-### Open-Meteo 不可用
-
-有历史天气状态时使用最后一个活动分类；没有历史状态时回退到 `CLOUDY`。只要当前池仍然有效，脚本不会因为天气请求失败而切换壁纸。
-
-### 只想重新选择一次
-
-执行：
+## Commands
 
 ```powershell
+# 日常检查：日期、天气、候选池状态
+.\scripts\update.ps1
+
+# 在现有 8 张候选中循环到下一张
+.\scripts\skip.ps1
+
+# 立即下载并切换到一组新的 8 张候选
 .\scripts\force-refresh.ps1
+
+# 安装登录时和每小时运行的计划任务
+.\scripts\setup-task.ps1
 ```
 
-它不会把手动操作计入自动天气切换的 3 小时限制，但实际显示的新图片仍会写入 60 天历史。
+## Skip shortcut
 
-### 清理运行时数据
+创建一个 Windows 快捷方式，目标类似：
 
-停止计划任务后，可以手动删除 `state/*.json`、`cache/*` 和 `logs/*` 来回到首次运行状态。不要删除本项目脚本或 `config.json`。删除缓存会让下一次更新重新下载图片。
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<DailyWallpaper>\scripts\skip.ps1"
+```
 
-## Acceptance checklist
+在快捷方式属性中将快捷键设为：
 
-部署前建议在 Wallpaper Engine 已运行、网络可用的测试机器上逐项确认：
+```text
+Ctrl + Alt + M
+```
 
-1. 空 `state/` 时首次更新能创建不超过 8 张合格图片并显示第一张。
-2. `3840x2160`、`5120x2880` 可接受；`3440x1440`、`2560x1440` 被拒绝。
-3. 同一天、天气未变的小时检查不会更换壁纸。
-4. 天气序列 `CLEAR → RAIN → CLEAR` 不触发切换；`CLEAR → RAIN → RAIN` 在满足 3 小时限制后才触发。
-5. `skip.ps1` 在候选池未耗尽时不需要联网，并递增池索引。
-6. 候选池耗尽后能重新建池，且不选择最近 60 天历史 ID。
-7. 暂时断开 Open-Meteo 或 Wallhaven 时，当前工作壁纸和旧池仍保留。
-8. 将 Wallpaper Engine 可执行文件改为无效路径时，脚本返回非零退出码且不把新图片写成已显示。
+项目不依赖 AutoHotkey。
 
+## Task Scheduler
+
+运行：
+
+```powershell
+.\scripts\setup-task.ps1
+```
+
+会创建：
+
+- `DailyWallpaper - Login`：用户登录时执行 `update.ps1`
+- `DailyWallpaper - Hourly`：每小时执行一次 `update.ps1`
+
+它们不是常驻守护进程。
+
+## Pool 与历史
+
+候选池固定为 8 张。正常的小时检查不会因为当前索引位于第 8 张而重建池。
+
+```text
+skip: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 1 → ...
+```
+
+只有以下情况会构建新池：
+
+- 首次运行或候选池损坏/缺失
+- 新的一天需要自动更新
+- 确认后的天气类别变化触发自动更新
+- 手动运行 `force-refresh.ps1`
+
+当前池里的图片即使已经写入 60 天历史，仍可继续循环。历史只在下一次从 Wallhaven 创建新池时用于去重。
+
+## Runtime data
+
+以下内容仅存在于本机，不应提交：
+
+```text
+config.json
+state/*.json
+cache/*
+logs/*
+%LOCALAPPDATA%\DailyWallpaper\cache\*
+```
+
+仓库中的 `.gitignore` 还排除了本地 handoff ZIP、Research Inbox OAuth 日志/venv 和常见编辑器文件。
+
+## Failure behavior
+
+- Open-Meteo 暂时不可用：使用最后一次天气分类，不清空当前壁纸。
+- Wallhaven 新池构建失败：保留当前工作池，不以空池覆盖。
+- 新池无法得到完整 8 张有效图片：视为构建失败，保留现有池。
+- Wallpaper Engine CLI 失败：不把目标图片记为成功显示。
+- 项目路径包含中文：Wallpaper Engine 使用 `%LOCALAPPDATA%\DailyWallpaper\cache` 中的暂存副本。
+
+## Security / repository hygiene
+
+不要提交：
+
+- `config.json`
+- API key、Token、账号凭据
+- `state/`、`cache/`、`logs/` 的运行时内容
+- 本机绝对路径
+- `DailyWallpaper-v1-handoff.zip`
+- `.research-inbox-oauth-logs/`
+- `.research-inbox-oauth-venv/`
+
+公开仓库应只包含脚本、README、`.gitignore`、`config.example.json` 和运行时目录的 `.gitkeep`。
